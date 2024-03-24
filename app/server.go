@@ -3,21 +3,26 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
+
+	// Uncomment this block to pass the first stage
 	"net"
 	"os"
 
-	"github.com/zmzlois/GoRedis/resp"
+	"github.com/zmzlois/GoRedis/commands"
 )
 
 func main() {
+	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
 
+	// Uncomment this block to pass the first stage
+	//
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
+	// try?
 
 	for {
 
@@ -26,6 +31,7 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
+		// does this handle concurrency?
 
 		go handleConnection(conn)
 	}
@@ -38,7 +44,7 @@ func handleConnection(conn net.Conn) {
 	buf := make([]byte, 4086)
 
 	for {
-		n, err := conn.Read(buf)
+		_, err := conn.Read(buf)
 		if err == io.EOF {
 			fmt.Println("Error: ", err)
 			break
@@ -49,40 +55,11 @@ func handleConnection(conn net.Conn) {
 			os.Exit(1)
 		}
 
-		log.Println("Read", n)
-
-		result, err := handleEcho(buf)
-		if err != nil {
-			fmt.Println("handleConnection.error", err)
-		}
+		result := commands.SwitchCommands(buf)
 
 		_, err = conn.Write(result)
 		if err != nil {
 			return
 		}
 	}
-}
-
-func handleEcho(n []byte) ([]byte, error) {
-	var result []byte
-
-	resp := resp.Resp{}
-
-	stringArray, err := resp.Decode(n)
-	if err != nil {
-		fmt.Println("handleEcho.error", err)
-	}
-
-	switch command := stringArray[0]; command {
-	case "echo":
-
-		format := fmt.Sprintf("$%d\r\n%s\r\n", len(stringArray[1]), stringArray[1])
-
-		result = []byte(format)
-
-	default:
-		result = []byte("+PONG\r\n")
-	}
-
-	return result, nil
 }
